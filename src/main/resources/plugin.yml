@@ -1,0 +1,6 @@
+main: org.skriptlang.addonpatcher.Plugin
+name: AddonPatcher
+version: 1.0-SNAPSHOT
+api-version: 1.13
+author: SkriptLang
+loadbefore: [Skript]

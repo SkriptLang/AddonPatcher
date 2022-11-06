@@ -1,0 +1,110 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.apache.tools.ant.filters.ReplaceTokens
+
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+group 'org.skriptlang'
+version '1.0-SNAPSHOT'
+variant = project.property("variant")
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
+    maven {
+        url 'https://repository.ow2.org/nexus/'
+    }
+    maven {
+        url 'https://repo.destroystokyo.com/repository/maven-public/'
+    }
+}
+
+dependencies {
+    //noinspection VulnerableLibrariesLocal
+    compileOnly 'org.spigotmc:spigot-api:1.13.2-R0.1-SNAPSHOT'
+    shadow 'org.ow2.asm:asm:9.4'
+}
+
+compileJava   {
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'org.skriptlang.addonpatcher.variants.Java',
+                'Agent-Class': 'org.skriptlang.addonpatcher.variants.agent.Agent'
+        )
+    }
+}
+
+// TODO change this system so it works without the clean task, and with both tasks run at once
+//  (e.g. gradlew agentJar replacerJar)
+// Also this stuff is ugly rn so if anyone has suggestions: please, I'm desperate
+task agentVariant {
+    doFirst {
+        project.setProperty("variant", "AGENT")
+    }
+}
+
+task replacerVariant {
+    doFirst {
+        project.setProperty("variant", "REPLACER")
+    }
+}
+
+processResources {
+    shouldRunAfter(agentVariant, replacerVariant)
+    doFirst {
+        filter ReplaceTokens, tokens: [
+                "variant": project.property("variant")
+        ]
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shadow]
+    relocate 'org.objectweb.asm', 'org.skriptlang.addonpatcher.asm'
+    archiveClassifier.set('')
+    manifest {
+        attributes(
+                'Main-Class': 'org.skriptlang.addonpatcher.variants.Java',
+                'Agent-Class': 'org.skriptlang.addonpatcher.variants.agent.Agent'
+        )
+    }
+}
+
+task agentJar(type: ShadowJar) {
+    from sourceSets.main.output
+    dependsOn agentVariant
+
+    configurations = [project.configurations.shadow]
+    relocate 'org.objectweb.asm', 'org.skriptlang.addonpatcher.asm'
+    archiveClassifier.set('Agent')
+    manifest {
+        attributes(
+                'Main-Class': 'org.skriptlang.addonpatcher.variants.Java',
+                'Agent-Class': 'org.skriptlang.addonpatcher.variants.agent.Agent'
+        )
+    }
+}
+
+task replacerJar(type: ShadowJar) {
+    from sourceSets.main.output
+    dependsOn replacerVariant
+
+    configurations = [project.configurations.shadow]
+    relocate 'org.objectweb.asm', 'org.skriptlang.addonpatcher.asm'
+    archiveClassifier.set('Replacer')
+    manifest {
+        attributes(
+                'Main-Class': 'org.skriptlang.addonpatcher.variants.Java',
+                'Agent-Class': 'org.skriptlang.addonpatcher.variants.agent.Agent'
+        )
+    }
+}
