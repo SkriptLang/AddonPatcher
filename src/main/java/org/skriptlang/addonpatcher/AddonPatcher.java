@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.Locale;
 
-// TODO auto update checker
 // TODO add warning to Agent when class file changed
 public class AddonPatcher extends JavaPlugin {
 
@@ -54,6 +53,8 @@ public class AddonPatcher extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        UpdateChecker.check();
+
         if (shouldDisable) {
             getLogger().severe("AddonPatcher couldn't be started. Scroll all the way up in console to see the errors.");
             Bukkit.getPluginManager().disablePlugin(this);
