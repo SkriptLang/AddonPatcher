@@ -1,6 +1,6 @@
 package org.skriptlang.addonpatcher.variants.agent;
 
-import org.skriptlang.addonpatcher.Plugin;
+import org.skriptlang.addonpatcher.AddonPatcher;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,8 +12,8 @@ public class AgentPlugin {
     /**
      * Starts and attaches the agent to the server.
      */
-    public static boolean load(Plugin plugin, File file) {
-        Logger logger = plugin.getLogger();
+    public static boolean load(AddonPatcher addonPatcher, File file) {
+        Logger logger = addonPatcher.getLogger();
 
         boolean success;
         try {

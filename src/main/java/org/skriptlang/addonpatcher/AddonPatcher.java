@@ -12,7 +12,7 @@ import java.util.Locale;
 
 // TODO auto update checker
 // TODO add warning to Agent when class file changed
-public class Plugin extends JavaPlugin {
+public class AddonPatcher extends JavaPlugin {
 
     private static final int REPLACER = 1;
     private static final int AGENT = 2;
@@ -39,7 +39,7 @@ public class Plugin extends JavaPlugin {
         return variant;
     }
 
-    public Plugin() {
+    public AddonPatcher() {
         super();
         if (getVariant() == REPLACER) {
             Replacer.replaceFiles(getLogger());
