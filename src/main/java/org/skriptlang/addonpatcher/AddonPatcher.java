@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.Locale;
 
-// TODO add warning to Agent when class file changed
 public class AddonPatcher extends JavaPlugin {
 
     private static final int REPLACER = 1;

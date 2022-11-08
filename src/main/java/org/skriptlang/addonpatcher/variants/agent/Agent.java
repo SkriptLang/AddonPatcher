@@ -1,7 +1,6 @@
 package org.skriptlang.addonpatcher.variants.agent;
 
 import com.sun.tools.attach.VirtualMachine;
-import org.bukkit.Bukkit;
 import org.skriptlang.addonpatcher.patcher.Patcher;
 
 import java.io.File;
@@ -11,7 +10,10 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 /**
  * The Agent variant attaches an agent to the server using the Attach API,
@@ -89,16 +91,48 @@ public class Agent {
 
 
     public static class ClassPatcher implements ClassFileTransformer {
+
+        private final Logger logger = Logger.getLogger("AddonPatcher");
+        private final List<URL> reportedURLs = new ArrayList<>();
+
         @Override
         public byte[] transform(ClassLoader loader,
                                 String className,
                                 Class<?> classBeingRedefined,
                                 ProtectionDomain protectionDomain,
                                 byte[] classfileBuffer) {
+            try {
+                return transformUnsafe(loader, classfileBuffer);
+            } catch (Exception e) {
+                logger.warning("Caught exception while transforming " + className + ", please report this.");
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        public byte[] transformUnsafe(ClassLoader loader, byte[] classfileBuffer) {
             AtomicBoolean used = new AtomicBoolean();
             byte[] bytes = Patcher.patchClass(classfileBuffer, used);
-            if (used.get())
+            if (used.get()) {
+                // Get the URL where this class originated from
+                if (loader instanceof URLClassLoader) {
+                    URL[] urls = ((URLClassLoader) loader).getURLs();
+                    if (urls.length == 1) {
+                        URL url = urls[0];
+                        if (!reportedURLs.contains(url)) {
+                            reportedURLs.add(url);
+
+                            File file = new File(url.getFile());
+
+                            logger.warning(file.getName() + " is incompatible with newer Skript versions (without AddonPatcher).");
+                            logger.warning("Please report this to the author of this addon, " +
+                                    "so they can make sure their addon works on newer Skript versions.");
+                        }
+                    }
+                }
+
                 return bytes;
+            }
 
             return null; // no transformation needed
         }

@@ -34,9 +34,9 @@ public class Replacer {
                             baos.writeTo(fileOutputStream);
                             fileOutputStream.close();
 
-                            logger.warning(file + " was patched.");
+                            logger.warning(file.getName() + " is incompatible with newer Skript versions and was patched.");
                             logger.warning("Please report this to the author of this addon, " +
-                                    "so they can make sure their addon works on new Skript versions.");
+                                    "so they can make sure their addon works on newer Skript versions.");
                         }
 
                         jarFile.close();
