@@ -1,0 +1,89 @@
+This file contains an overview of the bytecode used to convert Trigger#<init>(File, String, SkriptEvent, List) to
+Trigger#<init>(Script, String, SkriptEvent, List)
+
+The main way this was done was by converting File to Script via Optional.ofNullable(file).map(ScriptLoader::getScript).orElse(null)
+First, the other 3 arguments had to be backed up (since they're on top of the stack),
+then the conversion had to be done, and then the arguments had to be restored.
+
+The syntax used in this file is not very formal. On top, some coroutines (functions) are defined with arguments.
+Below that the main routine can be found including coroutine calls.
+The bytecode is formatted as such:
+
+<stack>
+    <instruction>
+<stack>
+...
+
+The stack is comma-seperated, sometimes words, sometimes single letters.
+The instructions sometimes correspond to the actual names of instructions, sometimes to coroutines,
+sometimes to informal instructions. The instructions can have arguments written with them, often informal.
+
+coroutine backup(index):
+	v,array
+		dup_x1
+	array,v,array
+		swap
+	array,array,v
+		push index
+	array,array,v,index
+		swap
+	array,array,index,v
+		array store
+	array
+
+coroutine restore(index, type):
+	array
+		dup
+	array,array
+		push index
+	array,array,index
+		array load
+	array,v
+		checkcast type
+	array,v
+		swap
+	v,array
+
+coroutine conversion:
+	file
+		invoke Optional.ofNullable
+	optional
+		push method reference
+	optional,methref
+		invoke Optional#map
+	optionalScript
+		push null
+	optionalScript,null
+		invoke Optional#orElse
+	script
+		checkcast Script
+	script
+
+main routine:
+
+t,v1,v2,v3,v4
+	load int 3
+t,v1,v2,v3,v4
+	anewarray
+t,v1,v2,v3,v4,a
+	backup(2)
+t,v1,v2,v3,a
+	backup(1)
+t,v1,v2,a
+	backup(0)
+t,v1,a
+	swap
+t,a,v1
+	conversion
+t,a,s
+	swap
+t,s,a
+	restore(0, String)
+t,s,v2,a
+	restore(1, SkriptEvent)
+t,s,v2,v3,a
+	restore(2, List)
+t,s,v2,v3,v4,a
+	pop
+t,s,v2,v3,v4
+	invoke new constructor

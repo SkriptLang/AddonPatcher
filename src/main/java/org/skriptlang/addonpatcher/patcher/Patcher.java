@@ -3,8 +3,10 @@ package org.skriptlang.addonpatcher.patcher;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.skriptlang.addonpatcher.Util;
 
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+
+import static org.objectweb.asm.Opcodes.*;
 
 public class Patcher {
 
@@ -82,7 +86,8 @@ public class Patcher {
      */
     public static byte[] patchClass(byte[] classBytes, AtomicBoolean used) {
         ClassReader classReader = new ClassReader(classBytes);
-        ClassWriter classWriter = new ClassWriter(0);
+        // Trigger constructor adds extra stuff to the stack, so max stack size must be recomputed
+        ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 
         /*
         Parallel script loading (https://github.com/SkriptLang/Skript/pull/3924)
@@ -162,7 +167,141 @@ public class Patcher {
             }
         });
 
-        classReader.accept(getCurrentScriptReplacer, 0);
+        ClassVisitor triggerConstructorReplacer = new MethodWrappingVisitor(getCurrentScriptReplacer, mv -> new MethodVisitor(Opcodes.ASM9, mv) {
+            @Override
+            public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+                // 'imports'
+                // so that I don't have to type all of them out each time
+                String trigger = "ch/njol/skript/lang/Trigger";
+                String file = "java/io/File";
+                String string = "java/lang/String";
+                String skriptEvent = "ch/njol/skript/lang/SkriptEvent";
+                String list = "java/util/List";
+
+                String script = "org/skriptlang/skript/lang/script/Script";
+
+                String scriptLoader = "ch/njol/skript/ScriptLoader";
+                String object = "java/lang/Object";
+                String optional = "java/util/Optional";
+                String function = "java/util/function/Function";
+
+                String lambdaMetafactory = "java/lang/invoke/LambdaMetafactory";
+                String lookup = "java/lang/invoke/MethodHandles$Lookup";
+                String methodType = "java/lang/invoke/MethodType";
+                String methodHandle = "java/lang/invoke/MethodHandle";
+                String callSite = "java/lang/invoke/CallSite";
+
+                /*
+                For a (hopefully) readable overview of this bytecode, see `bytecode Trigger constructor overview.txt`
+                 */
+
+                if (owner.equals(trigger) && name.equals("<init>") && descriptor.equals(
+                        "(L"+file+";L"+string+";L"+skriptEvent+";L"+list+";)V"
+                )) {
+                    // Create Object array of length 3
+                    visitInsn(ICONST_3);
+                    visitTypeInsn(ANEWARRAY, object);
+
+                    // Back up other arguments in array
+                    for (int i = 2; i >= 0; i--) {
+                        visitInsn(DUP_X1);
+                        visitInsn(SWAP);
+                        visitLdcInsn(i);
+                        visitInsn(SWAP);
+                        visitInsn(AASTORE);
+                    }
+
+                    // Swap backup array and file arg
+                    visitInsn(SWAP);
+
+                    // File arg now on top
+
+                    // Wrap in Optional
+                    visitMethodInsn(INVOKESTATIC, optional, "ofNullable", "(L"+object+";)L"+optional+";", false);
+
+                    // Method reference ScriptLoader::getScript
+                    visitInvokeDynamicInsn(
+                            "apply", "()Ljava/util/function/Function;",
+                            // Handle for the meta factory (I got most of these by looking what
+                            // ASMs ClassReader gave me for a regularly compiled class
+                            new Handle(
+                                    H_INVOKESTATIC,
+                                    lambdaMetafactory,
+                                    "metafactory",
+                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
+                                    false
+                            ),
+                            // Descriptor of Function#apply
+                            Type.getMethodType("(L"+object+";)L"+object+";"),
+                            // Handle for ScriptLoader.getScript
+                            new Handle(
+                                    H_INVOKESTATIC,
+                                    scriptLoader,
+                                    "getScript",
+                                    "(L"+file+";)L"+script+";",
+                                    false
+                            ),
+                            // Descriptor of ScriptLoader.getScript
+                            Type.getMethodType("(L"+file+";)L"+script+";")
+                    );
+
+                    // Map the Optional with ScriptLoader#getScript
+                    visitMethodInsn(INVOKEVIRTUAL, optional, "map", "(L"+function+";)L"+optional+";", false);
+
+                    // Invoke Optional#orElse(null) and cast to Script
+                    visitInsn(ACONST_NULL);
+                    visitMethodInsn(INVOKEVIRTUAL, optional, "orElse", "(L"+object+";)L"+object+";", false);
+                    visitTypeInsn(CHECKCAST, script);
+
+                    // We now have a Script on top of the stack
+
+                    visitInsn(SWAP);
+
+                    // Restore the backed up values
+                    for (int i = 0; i <= 2; i++) {
+                        visitInsn(DUP);
+                        visitLdcInsn(i);
+                        visitInsn(AALOAD);
+
+                        // Cast to appropriate type
+                        String cast;
+                        switch (i) {
+                            case 0: {
+                                cast = string;
+                                break;
+                            }
+                            case 1: {
+                                cast = skriptEvent;
+                                break;
+                            }
+                            default: {
+                                cast = list;
+                                break;
+                            }
+                        }
+                        visitTypeInsn(CHECKCAST, cast);
+
+                        visitInsn(SWAP);
+                    }
+
+                    // Pop the array from stack
+                    visitInsn(POP);
+
+                    // Finally, invoke new Trigger constructor
+                    visitMethodInsn(INVOKESPECIAL, trigger, "<init>",
+                            "(L"+script+";L"+string+";L"+skriptEvent+";L"+list+";)V"
+                            , false);
+
+                    used.set(true);
+
+                    return;
+                }
+
+                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+            }
+        });
+
+        classReader.accept(triggerConstructorReplacer, 0);
 
         return classWriter.toByteArray();
     }
