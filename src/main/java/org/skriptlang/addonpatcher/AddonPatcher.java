@@ -12,8 +12,20 @@ import java.util.Locale;
 
 public class AddonPatcher extends JavaPlugin {
 
+    static {
+        // Prevent class loading issues in agent variant
+        // Without this, UpdateChecker class might be loaded by internal class loader,
+        //  which therefore cannot find AddonPatcher class
+        try {
+            Class.forName("org.skriptlang.addonpatcher.UpdateChecker");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static final int REPLACER = 1;
     private static final int AGENT = 2;
+
     private int variant = 0;
     private boolean shouldDisable = false;
 
