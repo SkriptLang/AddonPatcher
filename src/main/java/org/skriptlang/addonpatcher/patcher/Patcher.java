@@ -145,9 +145,116 @@ public class Patcher {
                 String file = "java/io/File";
 
                 if (owner.equals(parserInstance) && name.equals("getCurrentScript") && descriptor.equals("()L"+config+";")) {
-                    // Replace ParserInstance#getCurrentScript->Config with ParserInstance#getCurrentScript->Script#getConfig->Config
-                    super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, parserInstance, "getCurrentScript", "()L"+script+";", false);
-                    super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, script, "getConfig", "()L"+config+";", false);
+                    // Replace ParserInstance#getCurrentScript->Config with
+                    // Optional.of(ParserInstance.get()).filter(ParserInstance::isActive).orElse(null)->Config
+
+                    // 'imports'
+                    String object = "java/lang/Object";
+                    String string = "java/lang/String";
+                    String primitiveBoolean = "Z";
+
+                    String optional = "java/util/Optional";
+                    String function = "java/util/function/Function";
+                    String predicate = "java/util/function/Predicate";
+
+                    String lambdaMetafactory = "java/lang/invoke/LambdaMetafactory";
+                    String lookup = "java/lang/invoke/MethodHandles$Lookup";
+                    String methodType = "java/lang/invoke/MethodType";
+                    String methodHandle = "java/lang/invoke/MethodHandle";
+                    String callSite = "java/lang/invoke/CallSite";
+
+                    // Wrap ParserInstance in optional
+                    super.visitMethodInsn(INVOKESTATIC, optional, "ofNullable", "(L"+object+";)L"+optional+";", false);
+
+                    // Method reference ParseInstance::isActive
+                    visitInvokeDynamicInsn(
+                            "test", "()L" + predicate + ";",
+                            // Handle for the meta factory (I got most of these by looking what
+                            // ASMs ClassReader gave me for a regularly compiled class
+                            new Handle(
+                                    H_INVOKESTATIC,
+                                    lambdaMetafactory,
+                                    "metafactory",
+                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
+                                    false
+                            ),
+                            // Descriptor of Predicate#test
+                            Type.getMethodType("(L"+object+";)"+primitiveBoolean),
+                            // Handle for ParserInstance#isActive
+                            new Handle(
+                                    H_INVOKEVIRTUAL,
+                                    parserInstance,
+                                    "isActive",
+                                    "()"+primitiveBoolean,
+                                    false
+                            ),
+                            // Descriptor of ParserInstance#isActive
+                            Type.getMethodType("(L"+parserInstance+";)"+primitiveBoolean)
+                    );
+                    // Filter the Optional with ParserInstance#isActive
+                    visitMethodInsn(INVOKEVIRTUAL, optional, "filter", "(L"+predicate+";)L"+optional+";", false);
+
+                    // Method reference ParserInstance::getCurrentScript
+                    visitInvokeDynamicInsn(
+                            "apply", "()L" + function + ";",
+                            // Handle for the meta factory (I got most of these by looking what
+                            // ASMs ClassReader gave me for a regularly compiled class
+                            new Handle(
+                                    H_INVOKESTATIC,
+                                    lambdaMetafactory,
+                                    "metafactory",
+                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
+                                    false
+                            ),
+                            // Descriptor of Function#apply
+                            Type.getMethodType("(L"+object+";)L"+object+";"),
+                            // Handle for ParserInstance#getCurrentScript
+                            new Handle(
+                                    H_INVOKEVIRTUAL,
+                                    parserInstance,
+                                    "getCurrentScript",
+                                    "()L"+script+";",
+                                    false
+                            ),
+                            // Descriptor of ParserInstance#getCurrentScript
+                            Type.getMethodType("(L"+parserInstance+";)L"+script+";")
+                    );
+                    // Map the Optional with ParserInstance#getCurrentScript
+                    visitMethodInsn(INVOKEVIRTUAL, optional, "map", "(L"+function+";)L"+optional+";", false);
+
+                    // Method reference Script::getConfig
+                    visitInvokeDynamicInsn(
+                            "apply", "()L" + function + ";",
+                            // Handle for the meta factory (I got most of these by looking what
+                            // ASMs ClassReader gave me for a regularly compiled class
+                            new Handle(
+                                    H_INVOKESTATIC,
+                                    lambdaMetafactory,
+                                    "metafactory",
+                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
+                                    false
+                            ),
+                            // Descriptor of Function#apply
+                            Type.getMethodType("(L"+object+";)L"+object+";"),
+                            // Handle for Script#getConfig
+                            new Handle(
+                                    H_INVOKEVIRTUAL,
+                                    script,
+                                    "getConfig",
+                                    "()L"+config+";",
+                                    false
+                            ),
+                            // Descriptor of Script#getConfig
+                            Type.getMethodType("(L"+script+";)L"+config+";")
+                    );
+                    // Map the Optional with Script#getConfig
+                    visitMethodInsn(INVOKEVIRTUAL, optional, "map", "(L"+function+";)L"+optional+";", false);
+
+                    // Invoke Optional#orElse(null) and cast to Config
+                    visitInsn(ACONST_NULL);
+                    visitMethodInsn(INVOKEVIRTUAL, optional, "orElse", "(L"+object+";)L"+object+";", false);
+                    visitTypeInsn(CHECKCAST, config);
+
                     used.set(true);
 
                     return;
@@ -221,7 +328,7 @@ public class Patcher {
 
                     // Method reference ScriptLoader::getScript
                     visitInvokeDynamicInsn(
-                            "apply", "()Ljava/util/function/Function;",
+                            "apply", "()L" + function + ";",
                             // Handle for the meta factory (I got most of these by looking what
                             // ASMs ClassReader gave me for a regularly compiled class
                             new Handle(
@@ -244,7 +351,6 @@ public class Patcher {
                             // Descriptor of ScriptLoader.getScript
                             Type.getMethodType("(L"+file+";)L"+script+";")
                     );
-
                     // Map the Optional with ScriptLoader#getScript
                     visitMethodInsn(INVOKEVIRTUAL, optional, "map", "(L"+function+";)L"+optional+";", false);
 
@@ -289,8 +395,9 @@ public class Patcher {
 
                     // Finally, invoke new Trigger constructor
                     visitMethodInsn(INVOKESPECIAL, trigger, "<init>",
-                            "(L"+script+";L"+string+";L"+skriptEvent+";L"+list+";)V"
-                            , false);
+                            "(L"+script+";L"+string+";L"+skriptEvent+";L"+list+";)V",
+                            false
+                    );
 
                     used.set(true);
 
