@@ -166,18 +166,20 @@ public class Patcher {
                     // Wrap ParserInstance in optional
                     super.visitMethodInsn(INVOKESTATIC, optional, "ofNullable", "(L"+object+";)L"+optional+";", false);
 
+                    // Handle for the meta factory (I got most of these by looking what
+                    // ASMs ClassReader gave me for a regularly compiled class)
+                    Handle metafactoryHandle = new Handle(
+                            H_INVOKESTATIC,
+                            lambdaMetafactory,
+                            "metafactory",
+                            "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
+                            false
+                    );
+
                     // Method reference ParseInstance::isActive
                     visitInvokeDynamicInsn(
                             "test", "()L" + predicate + ";",
-                            // Handle for the meta factory (I got most of these by looking what
-                            // ASMs ClassReader gave me for a regularly compiled class
-                            new Handle(
-                                    H_INVOKESTATIC,
-                                    lambdaMetafactory,
-                                    "metafactory",
-                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
-                                    false
-                            ),
+                            metafactoryHandle,
                             // Descriptor of Predicate#test
                             Type.getMethodType("(L"+object+";)"+primitiveBoolean),
                             // Handle for ParserInstance#isActive
@@ -197,15 +199,7 @@ public class Patcher {
                     // Method reference ParserInstance::getCurrentScript
                     visitInvokeDynamicInsn(
                             "apply", "()L" + function + ";",
-                            // Handle for the meta factory (I got most of these by looking what
-                            // ASMs ClassReader gave me for a regularly compiled class
-                            new Handle(
-                                    H_INVOKESTATIC,
-                                    lambdaMetafactory,
-                                    "metafactory",
-                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
-                                    false
-                            ),
+                            metafactoryHandle,
                             // Descriptor of Function#apply
                             Type.getMethodType("(L"+object+";)L"+object+";"),
                             // Handle for ParserInstance#getCurrentScript
@@ -225,15 +219,7 @@ public class Patcher {
                     // Method reference Script::getConfig
                     visitInvokeDynamicInsn(
                             "apply", "()L" + function + ";",
-                            // Handle for the meta factory (I got most of these by looking what
-                            // ASMs ClassReader gave me for a regularly compiled class
-                            new Handle(
-                                    H_INVOKESTATIC,
-                                    lambdaMetafactory,
-                                    "metafactory",
-                                    "(L"+lookup+";L"+string+";L"+methodType+";L"+methodType+";L"+methodHandle+";L"+methodType+";)L"+callSite+";",
-                                    false
-                            ),
+                            metafactoryHandle,
                             // Descriptor of Function#apply
                             Type.getMethodType("(L"+object+";)L"+object+";"),
                             // Handle for Script#getConfig
