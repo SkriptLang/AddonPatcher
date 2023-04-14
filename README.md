@@ -26,7 +26,9 @@ The Replacer variant is a plugin that, when installed on your server,
 automatically patches all addons the moment you start the server.
 The Replacer variant will modify your addon.jar file for the addons that require patching.
 
-This variant [does not work](https://github.com/SkriptLang/AddonPatcher/issues/2) on Paper 1.19+.
+This variant [does not fully work](https://github.com/SkriptLang/AddonPatcher/issues/2) on Paper 1.19+.
+It can be used on those Paper versions, but requires you to restart your server (twice) after initially installing AddonPatcher, 
+and when installing new addons.
 
 ### Java
 The Java variant is not a plugin: it is a standalone Java program that 
