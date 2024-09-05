@@ -24,5 +24,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@master
         with:
-          name: AddonPatcher-Replacer-${{ steps.sha.outputs.sha_short }}.jar
+          name: AddonPatcher-Replacer-${{ steps.sha.outputs.short_sha }}.jar
           path: build/libs/*.jar
