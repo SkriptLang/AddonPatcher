@@ -18,7 +18,11 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         run: ./gradlew clean replacerJar
+      - name: Compute short SHA
+        id: sha
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Upload artifacts
         uses: actions/upload-artifact@master
         with:
+          name: AddonPatcher-Replacer-${{ steps.sha.outputs.sha_short }}.jar
           path: build/libs/*.jar
