@@ -26,7 +26,7 @@ repositories {
 dependencies {
     //noinspection VulnerableLibrariesLocal
     compileOnly 'org.spigotmc:spigot-api:1.13.2-R0.1-SNAPSHOT'
-    shadow 'org.ow2.asm:asm:9.4'
+    shadow 'org.ow2.asm:asm:9.7'
 }
 
 compileJava   {
