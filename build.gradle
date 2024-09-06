@@ -7,7 +7,7 @@ plugins {
 }
 
 group 'org.skriptlang'
-version '2.7.0-dev1'
+version '1.1'
 variant = project.property("variant")
 
 repositories {
