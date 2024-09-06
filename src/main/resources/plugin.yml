@@ -1,6 +1,6 @@
 main: org.skriptlang.addonpatcher.AddonPatcher
 name: AddonPatcher
-version: 2.7.0-dev1
+version: 1.1
 api-version: 1.13
 author: SkriptLang
 loadbefore: [Skript]
